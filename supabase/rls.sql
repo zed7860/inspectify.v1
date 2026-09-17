@@ -1,0 +1,15 @@
+-- Run after schema.sql
+alter table companies enable row level security;alter table profiles enable row level security;alter table projects enable row level security;alter table project_users enable row level security;alter table project_companies enable row level security;alter table categories enable row level security;alter table subcategories enable row level security;alter table inspections enable row level security;alter table inspection_revisions enable row level security;alter table inspection_images enable row level security;alter table reviews enable row level security;alter table inspection_events enable row level security;alter table notifications enable row level security;alter table audit_logs enable row level security;alter table app_settings enable row level security;
+create or replace function public.my_role() returns app_role language sql stable security definer set search_path=public as $$select role from profiles where id=auth.uid() and is_active$$;
+create or replace function public.has_project(pid uuid) returns boolean language sql stable security definer set search_path=public as $$select my_role() in ('ADMIN','SUPER_ADMIN') or exists(select 1 from project_users where user_id=auth.uid() and project_id=pid)$$;
+create policy profiles_self on profiles for select using(id=auth.uid() or my_role() in ('ADMIN','SUPER_ADMIN'));
+create policy projects_access on projects for select using(has_project(id));create policy categories_read on categories for select using(auth.uid() is not null);create policy subcategories_read on subcategories for select using(auth.uid() is not null);create policy companies_read on companies for select using(auth.uid() is not null);
+create policy project_users_read on project_users for select using(user_id=auth.uid() or my_role() in ('ADMIN','SUPER_ADMIN'));
+create policy inspections_access on inspections for select using(has_project(project_id));
+create policy revisions_access on inspection_revisions for select using(exists(select 1 from inspections i where i.id=inspection_id and has_project(i.project_id)));
+create policy images_access on inspection_images for select using(exists(select 1 from inspections i where i.id=inspection_id and has_project(i.project_id)));
+create policy reviews_access on reviews for select using(exists(select 1 from inspections i where i.id=inspection_id and has_project(i.project_id)));
+create policy events_access on inspection_events for select using(exists(select 1 from inspections i where i.id=inspection_id and has_project(i.project_id)));
+create policy notifications_own on notifications for select using(user_id=auth.uid());create policy notifications_update on notifications for update using(user_id=auth.uid());
+create policy admin_audit on audit_logs for select using(my_role() in ('ADMIN','SUPER_ADMIN'));create policy settings_read on app_settings for select using(auth.uid() is not null);
+-- Mutations are intentionally performed through SECURITY DEFINER RPCs or server service-role admin routes, not direct client writes.
