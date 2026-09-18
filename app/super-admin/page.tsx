@@ -1,1 +1,0 @@
-import {requireUser} from "@/lib/auth/guard";import {Dashboard} from "@/components/dashboard";export const dynamic="force-dynamic";export default async function Page(){const u=await requireUser();return <Dashboard user={u}/>}

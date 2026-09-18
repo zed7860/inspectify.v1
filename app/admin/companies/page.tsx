@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const u = await requireUser(["ADMIN", "SUPER_ADMIN"]);
+  const u = await requireUser(["ADMIN"]);
   const { data: companies } = await u.supabase.from("companies").select("*").order("name");
 
   return <AppShell user={u.profile}>

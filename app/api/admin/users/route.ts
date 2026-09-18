@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";import {requireUser} from "@/lib/auth/guard";import {adminClient} from "@/lib/supabase/admin";
 
 export async function POST(r: Request) {
-  const u = await requireUser(["ADMIN", "SUPER_ADMIN"]);
+  const u = await requireUser(["ADMIN"]);
   const f = await r.formData();
   const action = String(f.get("action") || "create");
   const a = adminClient();
@@ -15,6 +15,15 @@ export async function POST(r: Request) {
     await a.auth.admin.deleteUser(id);
 
     return NextResponse.redirect(new URL("/admin/users", r.url), 303);
+  }
+
+  if (action === "resetPassword") {
+    const id = String(f.get("id") || "");
+    const password = String(f.get("password") || "");
+    if (!id || password.length < 12) return NextResponse.json({ error: "A password of at least 12 characters is required." }, { status: 400 });
+    const { error } = await a.auth.admin.updateUserById(id, { password });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "update") {

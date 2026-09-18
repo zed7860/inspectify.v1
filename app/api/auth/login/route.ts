@@ -54,16 +54,18 @@ export async function POST(r: Request) {
   }
 
   const role = normalizeRole(profile.role);
-  const fallbackRole = role || selectedRole || "ADMIN";
+  if (!['CONTRACTOR', 'PMC', 'CLIENT', 'ADMIN'].includes(role) || selectedRole !== role) {
+    await s.auth.signOut();
+    return NextResponse.redirect(new URL(`/login?error=invalid&role=${encodeURIComponent(selectedRole || "")}`, r.url), 303);
+  }
   const dashboardMap: Record<string, string> = {
     CONTRACTOR: "/contractor",
     PMC: "/pmc",
     CLIENT: "/client",
     ADMIN: "/admin",
-    SUPER_ADMIN: "/super-admin",
   };
 
-  const target = dashboardMap[fallbackRole] || "/dashboard";
+  const target = dashboardMap[role] || "/dashboard";
 
   if (contentType.includes("application/json")) {
     return NextResponse.json({ ok: true, role, redirect: target });

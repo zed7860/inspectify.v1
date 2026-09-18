@@ -6,7 +6,7 @@ import { formatIST } from "@/lib/timezone";
 export async function Dashboard({ user }: { user: any }) {
   const supabase = user.supabase;
   const role = user.profile.role;
-  const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(role);
+  const isAdmin = role === "ADMIN";
   let recentQuery = supabase.from("inspections").select("id,inspection_number,status,updated_at,projects(name),categories(name),profiles!inspections_contractor_id_fkey(name)", { count: "exact" }).order("updated_at", { ascending: false }).limit(8);
   if (role === "CONTRACTOR") recentQuery = recentQuery.eq("contractor_id", user.user.id);
   const { data: recent, count } = await recentQuery;

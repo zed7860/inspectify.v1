@@ -1,8 +1,7 @@
 <<<<<<< HEAD
-# inspectify
-inspectify by cbx
+# Inspectifier by Cubixtop India
 =======
-# SiteInspect — Next.js 16 + Supabase (No Prisma)
+# Inspectifier — Next.js 16 + Supabase (No Prisma)
 
 Production-oriented construction inspection workflow: **Contractor → PMC → Client → Final Approval**. This edition uses Supabase directly for PostgreSQL, Auth and private Storage. Prisma is not used.
 
@@ -27,9 +26,9 @@ Copy `.env.example` to `.env.local` and enter values from Supabase Project Setti
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_KEY
-SUPER_ADMIN_EMAIL=admin@yourcompany.com
-SUPER_ADMIN_PASSWORD=use-a-strong-12-plus-character-password
-NEXT_PUBLIC_APP_NAME=SiteInspect
+ADMIN_EMAIL=admin@yourcompany.com
+ADMIN_PASSWORD=use-a-strong-12-plus-character-password
+NEXT_PUBLIC_APP_NAME=Inspectifier by Cubixtop India
 ```
 
 Never expose the service-role key in browser code and never prefix it with `NEXT_PUBLIC_`.
@@ -37,10 +36,10 @@ Never expose the service-role key in browser code and never prefix it with `NEXT
 ## 4. Local setup in VS Code
 ```bash
 npm install
-npm run bootstrap:super-admin
+npm run bootstrap:admin
 npm run dev
 ```
-Open `http://localhost:3000` and sign in with the bootstrap Super Admin credentials.
+Open `http://localhost:3000` and sign in with the bootstrap Admin credentials.
 
 Use **Admin → Master Data** to create companies/projects. Use **Admin → Users** to create Contractor, PMC, Client and Admin accounts and assign projects.
 
@@ -65,9 +64,8 @@ Push to GitHub and import into Vercel. Add all `.env.local` values to Vercel →
 ## Security notes
 - Supabase Auth is authoritative for identity.
 - `profiles.role` is authoritative for application role; homepage role selection never grants permissions.
-- RLS restricts inspection reads to assigned projects, with Admin/Super Admin override.
+- RLS restricts inspection reads to assigned projects, with Admin override.
 - Critical workflow writes occur through `SECURITY DEFINER` RPC functions with explicit role/project/status validation.
 - Admin Auth user creation uses a server-only service-role client.
 - Approval history/revisions/events are not exposed to normal hard-delete UI.
 - Production should add rate limiting/WAF rules, malware scanning for uploads, email verification/reset flows, backup/PITR policy, and application-level monitoring before high-stakes site rollout.
->>>>>>> 3dd2a9f (welcome to inspectify)

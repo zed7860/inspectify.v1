@@ -1,32 +1,33 @@
 import Link from "next/link";
-import { Bell, Building2, ClipboardCheck, FolderKanban, Home, Layers3, LogOut, Search, UserRound } from "lucide-react";
+import { Bell, Building2, ClipboardCheck, FileText, FolderKanban, Home, Layers3, LogOut, Search, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function AppShell({ user, children }: { user: any; children: ReactNode }) {
   const role = user?.role || "ADMIN";
-  const base = role === "CONTRACTOR" ? "/contractor" : role === "PMC" ? "/pmc" : role === "CLIENT" ? "/client" : role === "ADMIN" ? "/admin" : "/super-admin";
+  const base = role === "CONTRACTOR" ? "/contractor" : role === "PMC" ? "/pmc" : role === "CLIENT" ? "/client" : "/admin";
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <Link href={base} className="brand">
           <span className="brandmark">SI</span>
-          <span>SiteInspect</span>
+          <span>Inspectifier</span>
         </Link>
 
         <nav className="sidebar-nav">
           <Link href={base}><Home size={16} /> Dashboard</Link>
           <Link href="/inspections"><ClipboardCheck size={16} /> Inspections</Link>
           <Link href="/search"><Search size={16} /> Search</Link>
-          {['ADMIN', 'SUPER_ADMIN'].includes(role) && (
+          {role === 'ADMIN' && (
             <>
               <Link href="/admin/users"><UserRound size={16} /> Users</Link>
               <Link href="/admin/companies"><Building2 size={16} /> Companies</Link>
               <Link href="/admin/categories"><Layers3 size={16} /> Inspection categories</Link>
               <Link href="/admin/master"><FolderKanban size={16} /> Projects</Link>
-              <Link href="/reports">▤ Reports</Link>
             </>
           )}
+          <Link href="/reports"><FileText size={16} /> Reports</Link>
+          <Link href="/profile"><UserRound size={16} /> Profile</Link>
         </nav>
 
         <div className="sidefoot">
@@ -37,14 +38,14 @@ export function AppShell({ user, children }: { user: any; children: ReactNode })
 
       <main className="main-panel">
         <header className="topbar">
-          <div>
+          <Link href="/profile" className="topbar-user">
             <b>{user?.name || 'User'}</b>
             <span className="muted">
               {' '}
               · {String(role).replaceAll('_', ' ')}
               {user?.company?.name ? ` · ${user.company.name}` : ''}
             </span>
-          </div>
+          </Link>
 
           <div className="head-actions">
             <Link href="/notifications" aria-label="Notifications">

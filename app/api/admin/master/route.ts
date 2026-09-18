@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";import {requireUser} from "@/lib/auth/guard";import {adminClient} from "@/lib/supabase/admin";
 
 export async function POST(r: Request) {
-  await requireUser(["ADMIN", "SUPER_ADMIN"]);
+  await requireUser(["ADMIN"]);
   const f = await r.formData();
   const action = String(f.get("action") || "create");
   const kind = String(f.get("kind") || "");
@@ -54,11 +54,19 @@ export async function POST(r: Request) {
   }
 
   if (kind === "project") {
-    await a.from("projects").insert({
+    const { data: project, error } = await a.from("projects").insert({
       name: String(f.get("name") || ""),
       code: String(f.get("code") || ""),
       address: String(f.get("address") || "")
-    });
+    }).select("id").single();
+    if (error || !project) return NextResponse.json({ error: error?.message || "Unable to create project." }, { status: 400 });
+
+    const companyIds = [...new Set(f.getAll("companyIds").map(String).filter(Boolean))];
+    if (companyIds.length) {
+      await a.from("project_companies").insert(companyIds.map((companyId) => ({ project_id: project.id, company_id: companyId })));
+      const { data: companyUsers } = await a.from("profiles").select("id").in("company_id", companyIds).eq("is_active", true);
+      if (companyUsers?.length) await a.from("project_users").insert(companyUsers.map((profile) => ({ project_id: project.id, user_id: profile.id })));
+    }
   }
 
   if (kind === "company") {

@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/guard";
 import { AppShell } from "@/components/app-shell";
+import { PasswordForm } from "@/components/password-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const u = await requireUser(["ADMIN", "SUPER_ADMIN"]);
+  const u = await requireUser(["ADMIN"]);
   const { id } = await params;
   const [{ data: user }, { data: companies }] = await Promise.all([
     u.supabase.from("profiles").select("*,companies(name)").eq("id", id).maybeSingle(),
@@ -29,6 +30,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <div className="field"><label>Company</label><select name="companyId" defaultValue={user.company_id || ""}><option value="">None</option>{companies?.map((company: any) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></div>
           <button className="btn btn-primary">Save user details</button>
         </form>
+        <section className="card"><div className="section-heading"><div><p className="eyebrow">Account security</p><h2>Reset password</h2></div></div><p className="muted">Set a new temporary password for this user. They can change it later from their profile.</p><PasswordForm adminUserId={user.id} /></section>
       </div>
     </AppShell>
   );

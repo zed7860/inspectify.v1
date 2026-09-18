@@ -1,1 +1,45 @@
-import {notFound} from "next/navigation";import {requireUser} from "@/lib/auth/guard";import {AppShell,StatusBadge} from "@/components/app-shell";import {ReviewForm} from "@/components/review-form";import {formatIST} from "@/lib/timezone";import {adminClient} from "@/lib/supabase/admin";export const dynamic="force-dynamic";export default async function Page({params}:{params:Promise<{id:string}>}){const u=await requireUser();const {id}=await params;const {data:i}=await u.supabase.from("inspections").select("*,projects(name,code),categories(name),subcategories(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)").eq("id",id).single();if(!i)notFound();const {data:imgs}=await u.supabase.from("inspection_images").select("*").eq("inspection_id",id).order("uploaded_at");const a=adminClient();const photos=await Promise.all((imgs||[]).map(async(x:any)=>({...x,url:(await a.storage.from("inspection-evidence").createSignedUrl(x.storage_key,900)).data?.signedUrl})));const revs=[...(i.inspection_revisions||[])].sort((a:any,b:any)=>a.revision_no-b.revision_no),events=[...(i.inspection_events||[])].sort((a:any,b:any)=>a.created_at.localeCompare(b.created_at));const canPmc=u.profile.role==="PMC"&&["PENDING_PMC","RESUBMITTED"].includes(i.status),canClient=u.profile.role==="CLIENT"&&i.status==="PENDING_CLIENT";return <AppShell user={u.profile}><div className="pagehead"><div><h1>{i.inspection_number}</h1><p>{i.projects?.name} · {i.location}</p></div><StatusBadge status={i.status}/></div><section className="card"><h2>Inspection</h2><p><b>{i.categories?.name} → {i.subcategories?.name}</b></p><p>Contractor: {i.profiles?.name}</p><p>Submitted: {i.submitted_at?formatIST(i.submitted_at):"—"}</p></section>{revs.map((r:any)=><section className="card" key={r.id}><h2>Contractor Submission · Revision {r.revision_no}</h2><p>{r.description}</p><small>{formatIST(r.submitted_at)}</small><div className="gallery">{photos.filter((x:any)=>x.revision_id===r.id&&x.stage==="CONTRACTOR").map((x:any)=><a key={x.id} href={x.url} target="_blank"><img src={x.url} alt={x.original_filename}/></a>)}</div>{(i.reviews||[]).filter((x:any)=>x.revision_id===r.id).map((v:any)=><div className="review" key={v.id}><h3>{v.stage} · {v.decision}</h3><p>{v.comments}</p><small>{v.profiles?.name} · {formatIST(v.reviewed_at)}</small><div className="gallery">{photos.filter((x:any)=>x.revision_id===r.id&&x.stage===v.stage).map((x:any)=><a key={x.id} href={x.url} target="_blank"><img src={x.url} alt={x.original_filename}/></a>)}</div></div>)}</section>)}{(canPmc||canClient)&&<ReviewForm inspectionId={id} version={i.lock_version} role={u.profile.role}/>}<section className="card"><h2>Complete Timeline</h2><div className="timeline">{events.map((e:any)=><div key={e.id}><b>{e.action.replaceAll("_"," ")}</b><p>{e.actor_name} · {e.actor_role}</p><small>{formatIST(e.created_at)}</small></div>)}</div></section></AppShell>}
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth/guard";
+import { AppShell, StatusBadge } from "@/components/app-shell";
+import { ReviewForm } from "@/components/review-form";
+import { ResubmitForm } from "@/components/resubmit-form";
+import { formatIST } from "@/lib/timezone";
+import { adminClient } from "@/lib/supabase/admin";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
+  const { id } = await params;
+  const { data: inspection } = await user.supabase
+    .from("inspections")
+    .select("*,projects(name,code),categories(name),subcategories(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)")
+    .eq("id", id)
+    .single();
+  if (!inspection) notFound();
+
+  const { data: images } = await user.supabase.from("inspection_images").select("*").eq("inspection_id", id).order("uploaded_at");
+  const storage = adminClient();
+  const photos = await Promise.all((images || []).map(async (image: any) => ({ ...image, url: (await storage.storage.from("inspection-evidence").createSignedUrl(image.storage_key, 900)).data?.signedUrl })));
+  const revisions = [...(inspection.inspection_revisions || [])].sort((a: any, b: any) => a.revision_no - b.revision_no);
+  const events = [...(inspection.inspection_events || [])].sort((a: any, b: any) => a.created_at.localeCompare(b.created_at));
+  const canPmcReview = user.profile.role === "PMC" && ["PENDING_PMC", "RESUBMITTED"].includes(inspection.status);
+  const canClientReview = user.profile.role === "CLIENT" && inspection.status === "PENDING_CLIENT";
+  const canResubmit = user.profile.role === "CONTRACTOR" && inspection.contractor_id === user.user.id && ["PMC_REJECTED", "CLIENT_REJECTED"].includes(inspection.status);
+  const latestRevision = revisions[revisions.length - 1];
+
+  return (
+    <AppShell user={user.profile}>
+      <div className="pagehead"><div><h1>{inspection.inspection_number}</h1><p>{inspection.projects?.name} · {inspection.location}</p></div><StatusBadge status={inspection.status} /></div>
+      <section className="card"><h2>Inspection</h2><p><b>{inspection.categories?.name} → {inspection.subcategories?.name}</b></p><p>Contractor: {inspection.profiles?.name}</p><p>Submitted: {inspection.submitted_at ? formatIST(inspection.submitted_at) : "—"}</p></section>
+      {revisions.map((revision: any) => <section className="card" key={revision.id}>
+        <h2>Contractor Submission · Revision {revision.revision_no}</h2><p>{revision.description}</p><small>{formatIST(revision.submitted_at)}</small>
+        <div className="gallery">{photos.filter((photo: any) => photo.revision_id === revision.id && photo.stage === "CONTRACTOR").map((photo: any) => <a key={photo.id} href={photo.url} target="_blank"><img src={photo.url} alt={photo.original_filename} /></a>)}</div>
+        {(inspection.reviews || []).filter((review: any) => review.revision_id === revision.id).map((review: any) => <div className="review" key={review.id}><h3>{review.stage} · {review.decision}</h3><p>{review.comments}</p><small>{review.profiles?.name} · {formatIST(review.reviewed_at)}</small><div className="gallery">{photos.filter((photo: any) => photo.revision_id === revision.id && photo.stage === review.stage).map((photo: any) => <a key={photo.id} href={photo.url} target="_blank"><img src={photo.url} alt={photo.original_filename} /></a>)}</div></div>)}
+      </section>)}
+      {canResubmit && latestRevision && <ResubmitForm inspectionId={id} description={latestRevision.description} />}
+      {(canPmcReview || canClientReview) && <ReviewForm inspectionId={id} version={inspection.lock_version} role={user.profile.role} />}
+      <section className="card"><h2>Complete Timeline</h2><div className="timeline">{events.map((event: any) => <div key={event.id}><b>{event.action.replaceAll("_", " ")}</b><p>{event.actor_name} · {event.actor_role}</p><small>{formatIST(event.created_at)}</small></div>)}</div></section>
+    </AppShell>
+  );
+}

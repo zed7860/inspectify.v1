@@ -1,1 +1,48 @@
-import {NextResponse} from "next/server";import {createClient} from "@/lib/supabase/server";import {adminClient} from "@/lib/supabase/admin";export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});const f=await req.formData(),photos=f.getAll("photos").filter(x=>x instanceof File&&x.size>0) as File[];const comments=String(f.get("comments")||"").trim(),decision=String(f.get("decision"))==="approve"?"APPROVED":"REJECTED",stage=String(f.get("stage")),version=Number(f.get("expectedVersion"));if(!comments||!photos.length)return NextResponse.json({error:"Comments and at least one photo are mandatory."},{status:400});if(photos.some(x=>!["image/jpeg","image/png","image/webp"].includes(x.type)||x.size>10485760))return NextResponse.json({error:"Invalid photo."},{status:400});const {data:ins}=await s.from("inspections").select("project_id").eq("id",id).single();if(!ins)return NextResponse.json({error:"Inspection not found"},{status:404});const a=adminClient(),keys:string[]=[],names:string[]=[],mimes:string[]=[],sizes:number[]=[];try{for(const photo of photos){const key=`${ins.project_id}/${id}/${stage.toLowerCase()}/${crypto.randomUUID()}.${photo.name.split('.').pop()||'jpg'}`;const {error}=await a.storage.from("inspection-evidence").upload(key,await photo.arrayBuffer(),{contentType:photo.type});if(error)throw error;keys.push(key);names.push(photo.name);mimes.push(photo.type);sizes.push(photo.size)}const {error}=await s.rpc("review_inspection",{p_inspection:id,p_stage:stage,p_decision:decision,p_comments:comments,p_reason:String(f.get("reason")||""),p_expected_version:version,p_storage_keys:keys,p_names:names,p_mimes:mimes,p_sizes:sizes});if(error)throw error;return NextResponse.json({ok:true})}catch(e:any){for(const k of keys)await a.storage.from("inspection-evidence").remove([k]);return NextResponse.json({error:e?.message||"Review failed"},{status:409})}}
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { adminClient } from "@/lib/supabase/admin";
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: profile } = await supabase.from("profiles").select("role,is_active").eq("id", user.id).single();
+  if (!profile?.is_active || !["PMC", "CLIENT", "ADMIN"].includes(profile.role)) {
+    return NextResponse.json({ error: "Invalid role." }, { status: 403 });
+  }
+
+  const form = await req.formData();
+  const photos = form.getAll("photos").filter((value): value is File => value instanceof File && value.size > 0);
+  const comments = String(form.get("comments") || "").trim();
+  const decision = String(form.get("decision")) === "approve" ? "APPROVED" : "REJECTED";
+  const stage = String(form.get("stage"));
+  const version = Number(form.get("expectedVersion"));
+  if (!comments) return NextResponse.json({ error: "Review comments are required." }, { status: 400 });
+  if (photos.some((photo) => !["image/jpeg", "image/png", "image/webp"].includes(photo.type) || photo.size > 10485760)) return NextResponse.json({ error: "Invalid photo." }, { status: 400 });
+
+  const { data: inspection } = await supabase.from("inspections").select("project_id").eq("id", id).single();
+  if (!inspection) return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+
+  const admin = adminClient();
+  const keys: string[] = [];
+  const names: string[] = [];
+  const mimes: string[] = [];
+  const sizes: number[] = [];
+  try {
+    for (const photo of photos) {
+      const extension = photo.name.split(".").pop() || "jpg";
+      const key = `${inspection.project_id}/${id}/${stage.toLowerCase()}/${crypto.randomUUID()}.${extension}`;
+      const { error } = await admin.storage.from("inspection-evidence").upload(key, await photo.arrayBuffer(), { contentType: photo.type });
+      if (error) throw error;
+      keys.push(key); names.push(photo.name); mimes.push(photo.type); sizes.push(photo.size);
+    }
+    const { error } = await supabase.rpc("review_inspection", { p_inspection: id, p_stage: stage, p_decision: decision, p_comments: comments, p_reason: String(form.get("reason") || ""), p_expected_version: version, p_storage_keys: keys, p_names: names, p_mimes: mimes, p_sizes: sizes });
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
+    return NextResponse.json({ error: error?.message || "Review failed" }, { status: 409 });
+  }
+}
