@@ -8,6 +8,22 @@ export async function POST(r: Request) {
   const a = adminClient();
   const returnPath = kind === "company" ? "/admin/companies" : ["category", "subcategory"].includes(kind) ? "/admin/categories" : "/admin/master";
 
+  if (kind === "smtp") {
+    const actor = await requireUser(["ADMIN"]);
+    const value = {
+      host: String(f.get("host") || "").trim(),
+      port: String(f.get("port") || "587").trim(),
+      secure: f.get("secure") === "on",
+      user: String(f.get("user") || "").trim(),
+      password: String(f.get("password") || ""),
+      from: String(f.get("from") || "").trim()
+    };
+    if (value.host && value.user && value.password && value.from) {
+      await a.from("app_settings").upsert({ key: "smtp", value, updated_by: actor.user.id, updated_at: new Date().toISOString() });
+    }
+    return NextResponse.redirect(new URL("/admin/master", r.url), 303);
+  }
+
   if (action === "delete") {
     const id = String(f.get("id") || "");
     if (!id) return NextResponse.redirect(new URL(returnPath, r.url), 303);

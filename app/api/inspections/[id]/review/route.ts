@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { adminClient } from "@/lib/supabase/admin";
+import { notifyInspectionUsers } from "@/lib/notifications/email";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,6 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { error } = await supabase.rpc("review_inspection", { p_inspection: id, p_stage: stage, p_decision: decision, p_comments: comments, p_reason: String(form.get("reason") || ""), p_expected_version: version, p_storage_keys: keys, p_names: names, p_mimes: mimes, p_sizes: sizes });
     if (error) throw error;
+    try { await notifyInspectionUsers({ inspectionId: id, title: decision === "APPROVED" ? `${stage} approval recorded` : `${stage} rejection requires action`, message: decision === "APPROVED" ? `The inspection has moved to the next approval level.` : `The inspection was rejected. Review the comments and resubmit corrected evidence.` }); } catch (notificationError) { console.error("Inspection notification failed", notificationError); }
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);

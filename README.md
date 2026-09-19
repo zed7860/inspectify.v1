@@ -13,9 +13,11 @@ Production-oriented construction inspection workflow: **Contractor → PMC → C
 ## 2. Supabase database setup
 In Supabase Dashboard → **SQL Editor**, run these files in this exact order:
 1. `supabase/schema.sql`
-2. `supabase/rls.sql`
+2. `supabase/one-shot-update.sql`
 3. `supabase/storage.sql`
 4. `supabase/seed.sql`
+
+`one-shot-update.sql` replaces the older `rls.sql` plus the multi-subcategory migration for a fresh setup. It creates the missing table before policies, drops existing policies before recreating them, and can be run again safely. Existing databases can run it directly after `schema.sql` has already been applied.
 
 `schema.sql` creates the relational model, workflow RPCs, immutable revision/event structures, indexes and concurrency-safe inspection numbering. `rls.sql` enables project-aware Row Level Security. `storage.sql` creates the private `inspection-evidence` bucket. `seed.sql` adds settings and starter categories.
 
@@ -44,7 +46,7 @@ Open `http://localhost:3000` and sign in with the bootstrap Admin credentials.
 Use **Admin → Master Data** to create companies/projects. Use **Admin → Users** to create Contractor, PMC, Client and Admin accounts and assign projects.
 
 ## 5. Workflow
-Contractor creates an inspection with mandatory project/location/category/subcategory/description/photos. The database assigns `INS-YYYY-000001` and server timestamp. PMC can review only assigned-project inspections in `PENDING_PMC`/`RESUBMITTED`; Client can review only `PENDING_CLIENT`. Review comments and images are mandatory. Rejections remain historical and contractor correction uses a new revision. `lock_version` plus row locking prevents simultaneous finalization.
+Contractor creates an inspection with mandatory project/location/category/multiple subcategories/description/photos. The database assigns `INS-YYYY-000001` and server timestamp. PMC can review only assigned-project inspections in `PENDING_PMC`/`RESUBMITTED`; Client can review only `PENDING_CLIENT`. Rejections remain historical and contractor correction uses a new revision. Submission, approval, rejection, and resubmission create in-app notifications and email every active project user plus the submitting contractor when SMTP is configured in Admin → Projects. `lock_version` plus row locking prevents simultaneous finalization.
 
 All database timestamps are `timestamptz` (UTC internally); UI formats them in `Asia/Kolkata` as IST.
 

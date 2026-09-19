@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   const user = await requireUser();
   const params = new URL(request.url).searchParams;
   const selectedIds = (params.get("ids") || "").split(",").filter(Boolean);
-  let query = user.supabase.from("inspections").select("id,inspection_number,location,status,created_at,updated_at,submitted_at,projects(name,code),categories(name),subcategories(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)").order("created_at", { ascending: false });
+  let query = user.supabase.from("inspections").select("id,inspection_number,location,status,created_at,updated_at,submitted_at,projects(name,code),categories(name),subcategories!inspections_subcategory_id_fkey(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)").order("created_at", { ascending: false });
   if (params.get("projectId")) query = query.eq("project_id", params.get("projectId")!);
   if (params.get("from")) query = query.gte("created_at", `${params.get("from")}T00:00:00.000Z`);
   if (params.get("to")) { const end = new Date(`${params.get("to")}T00:00:00.000Z`); end.setUTCDate(end.getUTCDate() + 1); query = query.lt("created_at", end.toISOString()); }

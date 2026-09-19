@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, Building2, ClipboardCheck, FileText, FolderKanban, Home, Layers3, LogOut, Search, UserRound } from "lucide-react";
+import { Bell, Building2, ClipboardCheck, FileText, FolderKanban, Home, Layers3, LogOut, Mail, Search, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function AppShell({ user, children }: { user: any; children: ReactNode }) {
@@ -24,6 +24,7 @@ export function AppShell({ user, children }: { user: any; children: ReactNode })
               <Link href="/admin/companies"><Building2 size={16} /> Companies</Link>
               <Link href="/admin/categories"><Layers3 size={16} /> Inspection categories</Link>
               <Link href="/admin/master"><FolderKanban size={16} /> Projects</Link>
+              <Link href="/admin/workflow"><Mail size={16} /> Workflow delivery</Link>
             </>
           )}
           <Link href="/reports"><FileText size={16} /> Reports</Link>

@@ -11,12 +11,18 @@ export const dynamic = "force-dynamic";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const { data: inspection } = await user.supabase
+  const baseInspectionQuery = user.supabase
     .from("inspections")
-    .select("*,projects(name,code),categories(name),subcategories(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)")
+    .select("*,projects(name,code),categories(name),subcategories!inspections_subcategory_id_fkey(name),profiles!inspections_contractor_id_fkey(name,email),inspection_revisions(*),reviews(*,profiles!reviews_reviewer_id_fkey(name)),inspection_events(*)")
     .eq("id", id)
     .single();
-  if (!inspection) notFound();
+  const { data: inspection, error: inspectionError } = await baseInspectionQuery;
+  if (inspectionError || !inspection) {
+    if (inspectionError) console.error("Inspection detail query failed", inspectionError);
+    notFound();
+  }
+  const { data: inspectionSubcategories } = await user.supabase.from("inspection_subcategories").select("subcategory_id,subcategories(name)").eq("inspection_id", id);
+  inspection.inspection_subcategories = inspectionSubcategories || [];
 
   const { data: images } = await user.supabase.from("inspection_images").select("*").eq("inspection_id", id).order("uploaded_at");
   const storage = adminClient();
@@ -31,7 +37,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <AppShell user={user.profile}>
       <div className="pagehead"><div><h1>{inspection.inspection_number}</h1><p>{inspection.projects?.name} · {inspection.location}</p></div><StatusBadge status={inspection.status} /></div>
-      <section className="card"><h2>Inspection</h2><p><b>{inspection.categories?.name} → {inspection.subcategories?.name}</b></p><p>Contractor: {inspection.profiles?.name}</p><p>Submitted: {inspection.submitted_at ? formatIST(inspection.submitted_at) : "—"}</p></section>
+      <section className="card"><h2>Inspection details</h2><p><b>{inspection.categories?.name}</b></p><p>Subcategories: {(inspection.inspection_subcategories || []).map((row: any) => (Array.isArray(row.subcategories) ? row.subcategories[0]?.name : row.subcategories?.name)).filter(Boolean).join(", ") || inspection.subcategories?.name || "-"}</p><p>Contractor: {inspection.profiles?.name}</p><p>Submitted: {inspection.submitted_at ? formatIST(inspection.submitted_at) : "—"}</p><p>Project: {inspection.projects?.code} · {inspection.projects?.name} · {inspection.location}</p></section>
       {revisions.map((revision: any) => <section className="card" key={revision.id}>
         <h2>Contractor Submission · Revision {revision.revision_no}</h2><p>{revision.description}</p><small>{formatIST(revision.submitted_at)}</small>
         <div className="gallery">{photos.filter((photo: any) => photo.revision_id === revision.id && photo.stage === "CONTRACTOR").map((photo: any) => <a key={photo.id} href={photo.url} target="_blank"><img src={photo.url} alt={photo.original_filename} /></a>)}</div>

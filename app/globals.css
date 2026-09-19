@@ -34,6 +34,7 @@ main, section, div { box-sizing: border-box; }
 button, a, select, input, textarea { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(29, 78, 216, .28); outline-offset: 2px; }
+button:active, a:active { opacity: .72; transform: scale(.98); }
 
 .app-shell { display: flex; min-height: 100vh; }
 .sidebar {
@@ -345,16 +346,28 @@ textarea { min-height: 110px; resize: vertical; }
 }
 .photo-picker { display: grid; gap: 12px; }
 .photo-picker > input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.photo-label { font-weight: 700; color: var(--ink); }
+.photo-picker-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .photo-add { min-height: 96px; display: grid; place-items: center; gap: 3px; border: 1px dashed #9acfc1; border-radius: 14px; color: var(--brand-strong); background: #f0fbf7; cursor: pointer; }
 .photo-add span { font-size: 2rem; line-height: 1; font-weight: 400; }
 .photo-add strong { font-size: .85rem; }
 .photo-list { display: grid; gap: 8px; }
+.subcategory-evidence { display: grid; gap: 14px; }
+.inspection-feed { display: grid; gap: 0; margin-top: 16px; }
+.inspection-feed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+.inspection-feed-row:hover { color: var(--brand); }
+.inspection-feed-main, .inspection-feed-meta { display: grid; gap: 4px; }
+.inspection-feed-main span, .inspection-feed-main small, .inspection-feed-meta span, .inspection-feed-meta small { color: var(--muted); font-size: .8rem; }
+.inspection-feed-meta { justify-items: end; }
 .photo-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: white; font-size: .85rem; }
 .photo-item button { border: 0; color: var(--danger); background: transparent; font-size: 1.25rem; cursor: pointer; }
 .success { color: var(--brand-strong); }
 .report-filters { margin-top: 20px; align-items: end; }
 .report-filter-actions { align-self: end; }
 .report-selection-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 18px 0 12px; }
+.report-email-actions { display: flex; align-items: end; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.report-email-actions .field { flex: 1; }
+.success { color: var(--brand); font-weight: 700; }
 .check-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
 .check-label input, .report-row input { width: 18px; height: 18px; accent-color: var(--brand); }
 .report-list { display: grid; gap: 8px; }
@@ -561,9 +574,14 @@ textarea { min-height: 110px; resize: vertical; }
   .content { padding: 14px 14px 92px; }
   .field .btn, .formgrid > .btn { width: 100%; }
   .photo-add { min-height: 84px; }
+  .photo-picker-actions { grid-template-columns: 1fr; }
+  .inspection-feed-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .inspection-feed-meta { justify-items: start; }
+  .inspection-feed-row > svg { display: none; }
   .report-selection-actions { align-items: stretch; flex-direction: column; }
   .report-selection-actions .row-actions { width: 100%; }
   .report-selection-actions .btn { flex: 1; }
+  .report-email-actions { align-items: stretch; flex-direction: column; }
   .report-row { align-items: flex-start; }
   .report-row > .badge { display: none; }
 }

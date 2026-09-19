@@ -2,8 +2,9 @@
 
 import { useRef, useState } from "react";
 
-export function PhotoPicker() {
-  const inputRef = useRef<HTMLInputElement>(null);
+export function PhotoPicker({ name = "photos", label = "Photos", required = true }: { name?: string; label?: string; required?: boolean }) {
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
 
   function addFiles(event: React.ChangeEvent<HTMLInputElement>) {
@@ -12,7 +13,8 @@ export function PhotoPicker() {
     setFiles(next);
     const transfer = new DataTransfer();
     next.forEach((file) => transfer.items.add(file));
-    if (inputRef.current) inputRef.current.files = transfer.files;
+    if (galleryRef.current) galleryRef.current.files = transfer.files;
+    if (cameraRef.current) cameraRef.current.files = transfer.files;
   }
 
   function removeFile(index: number) {
@@ -20,16 +22,17 @@ export function PhotoPicker() {
     setFiles(next);
     const transfer = new DataTransfer();
     next.forEach((file) => transfer.items.add(file));
-    if (inputRef.current) inputRef.current.files = transfer.files;
   }
 
   return (
     <div className="photo-picker">
-      <input ref={inputRef} name="photos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple required={files.length === 0} onChange={addFiles} />
-      <button type="button" className="photo-add" onClick={() => inputRef.current?.click()} aria-label="Add another photo">
-        <span aria-hidden="true">+</span>
-        <strong>{files.length ? "Add more photos" : "Add photos"}</strong>
-      </button>
+      <span className="photo-label">{label}</span>
+      <input ref={galleryRef} name={name} type="file" accept="image/jpeg,image/png,image/webp" multiple required={required && files.length === 0} onChange={addFiles} />
+      <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple tabIndex={-1} aria-hidden="true" onChange={addFiles} />
+      <div className="photo-picker-actions">
+        <button type="button" className="photo-add" onClick={() => galleryRef.current?.click()}><strong>{files.length ? "Add from gallery" : "Choose from gallery"}</strong></button>
+        <button type="button" className="photo-add" onClick={() => cameraRef.current?.click()}><strong>Use camera</strong></button>
+      </div>
       {files.length > 0 && (
         <div className="photo-list">
           {files.map((file, index) => (

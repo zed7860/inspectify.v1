@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { adminClient } from "@/lib/supabase/admin";
+import { notifyInspectionUsers } from "@/lib/notifications/email";
 
 const validPhoto = (file: File) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 10 * 1024 * 1024;
 
@@ -37,6 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const { error } = await supabase.rpc("resubmit_inspection", { p_inspection: id, p_description: description, p_storage_keys: keys, p_names: names, p_mimes: mimes, p_sizes: sizes });
     if (error) throw error;
+    try { await notifyInspectionUsers({ inspectionId: id, title: "Inspection resubmitted", message: "Corrected evidence is ready for PMC review." }); } catch (notificationError) { console.error("Inspection notification failed", notificationError); }
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
