@@ -1,4 +1,5 @@
 "use client";
+import { notifySuccess } from "@/components/action-feedback";
 
 import { useRef, useState } from "react";
 
@@ -11,6 +12,7 @@ export function PhotoPicker({ name = "photos", label = "Photos", required = true
     const selected = Array.from(event.target.files || []);
     const next = [...files, ...selected];
     setFiles(next);
+    notifySuccess(`${next.length} photo(s) selected. They will upload when you submit.`);
     const transfer = new DataTransfer();
     next.forEach((file) => transfer.items.add(file));
     if (galleryRef.current) galleryRef.current.files = transfer.files;
@@ -18,10 +20,13 @@ export function PhotoPicker({ name = "photos", label = "Photos", required = true
   }
 
   function removeFile(index: number) {
+    notifySuccess("Photo removed from the selection.");
     const next = files.filter((_, fileIndex) => fileIndex !== index);
     setFiles(next);
     const transfer = new DataTransfer();
     next.forEach((file) => transfer.items.add(file));
+    if (galleryRef.current) galleryRef.current.files = transfer.files;
+    if (cameraRef.current) cameraRef.current.value = "";
   }
 
   return (

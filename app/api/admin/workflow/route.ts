@@ -1,7 +1,10 @@
+import { publicAppUrl } from "@/lib/notifications/app-url";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { adminClient } from "@/lib/supabase/admin";
-import { sendConfiguredEmail } from "@/lib/notifications/email";
+import { notifyInspectionUsers, sendConfiguredEmail } from "@/lib/notifications/email";
+
+export const maxDuration = 300;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,6 +14,24 @@ export async function POST(request: Request) {
   const action = String(form.get("action") || "");
   const admin = adminClient();
 
+  if (action === "retryInspection") {
+    const { data: log, error } = await admin.from("audit_logs").select("entity_id,new_state,action").eq("id", String(form.get("logId") || "")).single();
+    if (error || !log?.entity_id || log.action !== "INSPECTION_EMAIL_FAILED") return NextResponse.json({ error: "No failed inspection email was found." }, { status: 400 });
+    const state = log.new_state as { title?: string; message?: string; rejected?: string[]; accepted?: string[]; retried_at?: string };
+    if (state.retried_at) return NextResponse.json({ error: "This attempt has already been retried. Use the latest delivery entry." }, { status: 409 });
+    const delivery = await notifyInspectionUsers({ inspectionId: log.entity_id, title: state.title || "Inspection workflow report", message: state.message || "Latest inspection report.", ...(state.rejected?.length ? { recipientFilter: state.rejected } : {}) });
+    await admin.from("audit_logs").update({ new_state: { ...state, retried_at: new Date().toISOString() } }).eq("id", String(form.get("logId")));
+    if (delivery.status === "failed") return NextResponse.json({ error: delivery.error }, { status: 502 });
+    return NextResponse.json({ message: `Inspection report accepted for ${delivery.accepted.length} recipient(s).`, redirect: "/admin/workflow" });
+  }
+  if (action === "website") {
+    try {
+      const url = publicAppUrl(String(form.get("publicUrl") || "").trim());
+      const { error } = await admin.from("app_settings").upsert({ key: "public_app_url", value: { url }, updated_by: user.user.id, updated_at: new Date().toISOString() });
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ message: "Public website URL saved. Inspection emails will use this address." });
+    } catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
+  }
   if (action === "test") {
     const recipient = String(form.get("recipient") || "").trim().toLowerCase();
     if (!emailPattern.test(recipient)) return NextResponse.json({ error: "Enter a valid test email address." }, { status: 400 });

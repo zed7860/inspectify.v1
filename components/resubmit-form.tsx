@@ -1,4 +1,6 @@
 "use client";
+import { readJsonResponse } from "@/lib/http/response";
+import { finishAction } from "@/components/action-feedback";
 
 import { useState } from "react";
 import { PhotoPicker } from "@/components/photo-picker";
@@ -11,14 +13,17 @@ export function ResubmitForm({ inspectionId, description }: { inspectionId: stri
     event.preventDefault();
     setBusy(true);
     setError("");
+    try {
     const response = await fetch(`/api/inspections/${inspectionId}/resubmit`, { method: "POST", body: new FormData(event.currentTarget) });
-    const result = await response.json();
+    const result = await readJsonResponse(response);
     if (!response.ok) {
       setError(result.error || "Unable to resubmit inspection.");
       setBusy(false);
       return;
     }
-    location.reload();
+    finishAction(result.delivery?.status === "failed" ? "Inspection resubmitted. Email delivery failed; see the delivery notice for details." : "Inspection resubmitted. Project notification accepted by the mail server.");
+    } catch { setError("Connection failed. Please try again."); }
+    finally { setBusy(false); }
   }
 
   return (

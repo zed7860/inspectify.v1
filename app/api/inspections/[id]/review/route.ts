@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { notifyInspectionUsers } from "@/lib/notifications/email";
 
+export const maxDuration = 300;
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -31,6 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const names: string[] = [];
   const mimes: string[] = [];
   const sizes: number[] = [];
+  let committed = false;
   try {
     for (const photo of photos) {
       const extension = photo.name.split(".").pop() || "jpg";
@@ -41,10 +44,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { error } = await supabase.rpc("review_inspection", { p_inspection: id, p_stage: stage, p_decision: decision, p_comments: comments, p_reason: String(form.get("reason") || ""), p_expected_version: version, p_storage_keys: keys, p_names: names, p_mimes: mimes, p_sizes: sizes });
     if (error) throw error;
-    try { await notifyInspectionUsers({ inspectionId: id, title: decision === "APPROVED" ? `${stage} approval recorded` : `${stage} rejection requires action`, message: decision === "APPROVED" ? `The inspection has moved to the next approval level.` : `The inspection was rejected. Review the comments and resubmit corrected evidence.` }); } catch (notificationError) { console.error("Inspection notification failed", notificationError); }
-    return NextResponse.json({ ok: true });
+    committed = true;
+    const delivery = await notifyInspectionUsers({ inspectionId: id, title: decision === "APPROVED" ? `${stage} approval recorded` : `${stage} rejection requires action`, message: decision === "APPROVED" ? (stage === "CLIENT" ? "The client has given final approval. The inspection approval workflow is complete." : "The inspection has moved to the next approval level.") : `The inspection was rejected. Review the comments and resubmit corrected evidence.` });
+    return NextResponse.json({ ok: true, delivery });
   } catch (error: any) {
-    for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
+    if (!committed) for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
     return NextResponse.json({ error: error?.message || "Review failed" }, { status: 409 });
   }
 }

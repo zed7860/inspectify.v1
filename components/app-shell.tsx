@@ -1,3 +1,5 @@
+import { WorkspaceNavigation } from "@/components/workspace-navigation";
+import { AdminForm } from "@/components/admin-form";
 import Link from "next/link";
 import { Bell, Building2, ClipboardCheck, FileText, FolderKanban, Home, Layers3, LogOut, Mail, Search, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
@@ -8,55 +10,21 @@ export function AppShell({ user, children }: { user: any; children: ReactNode })
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <Link href={base} className="brand">
-          <span className="brandmark">SI</span>
-          <span>Inspectifier</span>
-        </Link>
-
-        <nav className="sidebar-nav">
-          <Link href={base}><Home size={16} /> Dashboard</Link>
-          <Link href="/inspections"><ClipboardCheck size={16} /> Inspections</Link>
-          <Link href="/search"><Search size={16} /> Search</Link>
-          {role === 'ADMIN' && (
-            <>
-              <Link href="/admin/users"><UserRound size={16} /> Users</Link>
-              <Link href="/admin/companies"><Building2 size={16} /> Companies</Link>
-              <Link href="/admin/categories"><Layers3 size={16} /> Inspection categories</Link>
-              <Link href="/admin/master"><FolderKanban size={16} /> Projects</Link>
-              <Link href="/admin/workflow"><Mail size={16} /> Workflow delivery</Link>
-            </>
-          )}
-          <Link href="/reports"><FileText size={16} /> Reports</Link>
-          <Link href="/profile"><UserRound size={16} /> Profile</Link>
-        </nav>
-
-        <div className="sidefoot">
-          <small>{user?.name || 'User'}</small>
-          <small>{String(role).replaceAll('_', ' ')}</small>
-        </div>
-      </aside>
-
+      <WorkspaceNavigation role={role} base={base} />
       <main className="main-panel">
         <header className="topbar">
-          <Link href="/profile" className="topbar-user">
-            <b>{user?.name || 'User'}</b>
-            <span className="muted">
-              {' '}
-              · {String(role).replaceAll('_', ' ')}
-              {user?.company?.name ? ` · ${user.company.name}` : ''}
-            </span>
-          </Link>
-
+          <Link href={base} className="workspace-brand">Inspectifier<span>PROJECT WORKSPACE</span></Link>
+          <form action="/inspections" className="topbar-search"><Search size={17} /><input name="search" placeholder="Search inspections…" aria-label="Search inspection number" /><kbd>↵</kbd></form>
           <div className="head-actions">
+            <Link href="/profile" className="account-pill"><span className="account-avatar">{user?.name?.slice(0, 1).toUpperCase() || "U"}</span><span><b>{user?.name || "User"}</b><small>{role === "ADMIN" ? "Workspace admin" : role.toLowerCase()}</small></span></Link>
             <Link href="/notifications" aria-label="Notifications">
               <Bell size={18} />
             </Link>
-            <form action="/api/auth/logout" method="post">
+            <AdminForm action="/api/auth/logout" method="post" successMessage="Signed out successfully.">
               <button className="iconbtn" aria-label="Logout">
                 <LogOut size={18} />
               </button>
-            </form>
+            </AdminForm>
           </div>
         </header>
 

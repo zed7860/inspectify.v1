@@ -24,6 +24,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { data: inspectionSubcategories } = await user.supabase.from("inspection_subcategories").select("subcategory_id,subcategories(name)").eq("inspection_id", id);
   inspection.inspection_subcategories = inspectionSubcategories || [];
 
+  const { data: deliveryLog } = await adminClient().from("audit_logs").select("id,action,new_state").eq("entity_id", id).in("action", ["INSPECTION_EMAIL_SENT", "INSPECTION_EMAIL_FAILED"]).order("created_at", {ascending:false}).limit(1).maybeSingle();
   const { data: images } = await user.supabase.from("inspection_images").select("*").eq("inspection_id", id).order("uploaded_at");
   const storage = adminClient();
   const photos = await Promise.all((images || []).map(async (image: any) => ({ ...image, url: (await storage.storage.from("inspection-evidence").createSignedUrl(image.storage_key, 900)).data?.signedUrl })));
@@ -37,6 +38,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <AppShell user={user.profile}>
       <div className="pagehead"><div><h1>{inspection.inspection_number}</h1><p>{inspection.projects?.name} · {inspection.location}</p></div><StatusBadge status={inspection.status} /></div>
+      {deliveryLog?.action === "INSPECTION_EMAIL_FAILED" && <section className="notice delivery-warning" role="alert"><strong>The inspection was saved, but its email notification needs attention.</strong><p>{deliveryLog.new_state?.error || "Email delivery failed."}</p><p>An administrator can retry failed recipients from <a className="text-link" href="/admin/workflow">Workflow delivery</a>.</p></section>}
       <section className="card"><h2>Inspection details</h2><p><b>{inspection.categories?.name}</b></p><p>Subcategories: {(inspection.inspection_subcategories || []).map((row: any) => (Array.isArray(row.subcategories) ? row.subcategories[0]?.name : row.subcategories?.name)).filter(Boolean).join(", ") || inspection.subcategories?.name || "-"}</p><p>Contractor: {inspection.profiles?.name}</p><p>Submitted: {inspection.submitted_at ? formatIST(inspection.submitted_at) : "—"}</p><p>Project: {inspection.projects?.code} · {inspection.projects?.name} · {inspection.location}</p></section>
       {revisions.map((revision: any) => <section className="card" key={revision.id}>
         <h2>Contractor Submission · Revision {revision.revision_no}</h2><p>{revision.description}</p><small>{formatIST(revision.submitted_at)}</small>

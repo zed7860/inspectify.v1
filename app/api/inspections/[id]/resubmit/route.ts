@@ -5,6 +5,8 @@ import { notifyInspectionUsers } from "@/lib/notifications/email";
 
 const validPhoto = (file: File) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 10 * 1024 * 1024;
 
+export const maxDuration = 300;
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -28,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: inspection } = await supabase.from("inspections").select("project_id").eq("id", id).single();
   if (!inspection) return NextResponse.json({ error: "Inspection not found." }, { status: 404 });
 
+  let committed = false;
   try {
     for (const photo of photos) {
       const extension = photo.name.split(".").pop() || "jpg";
@@ -38,10 +41,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     const { error } = await supabase.rpc("resubmit_inspection", { p_inspection: id, p_description: description, p_storage_keys: keys, p_names: names, p_mimes: mimes, p_sizes: sizes });
     if (error) throw error;
-    try { await notifyInspectionUsers({ inspectionId: id, title: "Inspection resubmitted", message: "Corrected evidence is ready for PMC review." }); } catch (notificationError) { console.error("Inspection notification failed", notificationError); }
-    return NextResponse.json({ ok: true });
+    committed = true;
+    const delivery = await notifyInspectionUsers({ inspectionId: id, title: "Inspection resubmitted", message: "Corrected evidence is ready for PMC review." });
+    return NextResponse.json({ ok: true, delivery });
   } catch (error: any) {
-    for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
+    if (!committed) for (const key of keys) await admin.storage.from("inspection-evidence").remove([key]);
     return NextResponse.json({ error: error?.message || "Resubmission failed." }, { status: 409 });
   }
 }

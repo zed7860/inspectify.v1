@@ -1,1 +1,2 @@
-import "./globals.css"; export const metadata={title:"Inspectifier by Cubixtop India",description:"Construction inspection management"}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
+import { ActionFeedback } from "@/components/action-feedback";
+import "./globals.css"; export const metadata={title:"Inspectifier by Cubixtop India",description:"Construction inspection management"}; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}<ActionFeedback /></body></html>}

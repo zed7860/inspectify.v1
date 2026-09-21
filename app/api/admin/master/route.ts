@@ -6,6 +6,7 @@ export async function POST(r: Request) {
   const action = String(f.get("action") || "create");
   const kind = String(f.get("kind") || "");
   const a = adminClient();
+  try {
   const returnPath = kind === "company" ? "/admin/companies" : ["category", "subcategory"].includes(kind) ? "/admin/categories" : "/admin/master";
 
   if (kind === "smtp") {
@@ -19,7 +20,7 @@ export async function POST(r: Request) {
       from: String(f.get("from") || "").trim()
     };
     if (value.host && value.user && value.password && value.from) {
-      await a.from("app_settings").upsert({ key: "smtp", value, updated_by: actor.user.id, updated_at: new Date().toISOString() });
+      await a.from("app_settings").upsert({ key: "smtp", value, updated_by: actor.user.id, updated_at: new Date().toISOString() }).throwOnError();
     }
     return NextResponse.redirect(new URL("/admin/master", r.url), 303);
   }
@@ -28,10 +29,10 @@ export async function POST(r: Request) {
     const id = String(f.get("id") || "");
     if (!id) return NextResponse.redirect(new URL(returnPath, r.url), 303);
 
-    if (kind === "project") await a.from("projects").delete().eq("id", id);
-    if (kind === "company") await a.from("companies").delete().eq("id", id);
-    if (kind === "category") await a.from("categories").delete().eq("id", id);
-    if (kind === "subcategory") await a.from("subcategories").delete().eq("id", id);
+    if (kind === "project") await a.from("projects").delete().eq("id", id).throwOnError();
+    if (kind === "company") await a.from("companies").delete().eq("id", id).throwOnError();
+    if (kind === "category") await a.from("categories").delete().eq("id", id).throwOnError();
+    if (kind === "subcategory") await a.from("subcategories").delete().eq("id", id).throwOnError();
 
     return NextResponse.redirect(new URL(returnPath, r.url), 303);
   }
@@ -45,25 +46,25 @@ export async function POST(r: Request) {
         name: String(f.get("name") || ""),
         code: String(f.get("code") || ""),
         address: String(f.get("address") || "")
-      }).eq("id", id);
+      }).eq("id", id).throwOnError();
     }
 
     if (kind === "company") {
       await a.from("companies").update({
         name: String(f.get("name") || ""),
         type: String(f.get("type") || "")
-      }).eq("id", id);
+      }).eq("id", id).throwOnError();
     }
 
     if (kind === "category") {
-      await a.from("categories").update({ name: String(f.get("name") || "") }).eq("id", id);
+      await a.from("categories").update({ name: String(f.get("name") || "") }).eq("id", id).throwOnError();
     }
 
     if (kind === "subcategory") {
       await a.from("subcategories").update({
-        category_id: String(f.get("categoryId") || ""),
+        ...(f.get("categoryId") ? { category_id: String(f.get("categoryId")) } : {}),
         name: String(f.get("name") || "")
-      }).eq("id", id);
+      }).eq("id", id).throwOnError();
     }
 
     return NextResponse.redirect(new URL(returnPath, r.url), 303);
@@ -79,9 +80,9 @@ export async function POST(r: Request) {
 
     const companyIds = [...new Set(f.getAll("companyIds").map(String).filter(Boolean))];
     if (companyIds.length) {
-      await a.from("project_companies").insert(companyIds.map((companyId) => ({ project_id: project.id, company_id: companyId })));
-      const { data: companyUsers } = await a.from("profiles").select("id").in("company_id", companyIds).eq("is_active", true);
-      if (companyUsers?.length) await a.from("project_users").insert(companyUsers.map((profile) => ({ project_id: project.id, user_id: profile.id })));
+      await a.from("project_companies").insert(companyIds.map((companyId) => ({ project_id: project.id, company_id: companyId }))).throwOnError();
+      const { data: companyUsers } = await a.from("profiles").select("id").in("company_id", companyIds).eq("is_active", true).throwOnError();
+      if (companyUsers?.length) await a.from("project_users").insert(companyUsers.map((profile) => ({ project_id: project.id, user_id: profile.id }))).throwOnError();
     }
   }
 
@@ -89,27 +90,28 @@ export async function POST(r: Request) {
     await a.from("companies").insert({
       name: String(f.get("name") || ""),
       type: String(f.get("type") || "")
-    });
+    }).throwOnError();
   }
 
   if (kind === "category") {
-    const names = String(f.get("names") || f.get("name") || "")
+    const names = [...new Set(String(f.get("names") || f.get("name") || "")
       .split(/[,\n]/)
       .map((name) => name.trim())
-      .filter(Boolean);
-    if (names.length) await a.from("categories").insert(names.map((name) => ({ name })));
+      .filter(Boolean))];
+    if (names.length) await a.from("categories").upsert(names.map((name) => ({ name, is_active: true })), { onConflict: "name" }).throwOnError();
   }
 
   if (kind === "subcategory") {
     const categoryId = String(f.get("categoryId") || "");
-    const names = String(f.get("names") || f.get("name") || "")
+    const names = [...new Set(String(f.get("names") || f.get("name") || "")
       .split(/[,\n]/)
       .map((name) => name.trim())
-      .filter(Boolean);
+      .filter(Boolean))];
     if (categoryId && names.length) {
-      await a.from("subcategories").insert(names.map((name) => ({ category_id: categoryId, name })));
+      await a.from("subcategories").upsert(names.map((name) => ({ category_id: categoryId, name, is_active: true })), { onConflict: "category_id,name" }).throwOnError();
     }
   }
 
   return NextResponse.redirect(new URL(returnPath, r.url), 303);
+  } catch (error) { return NextResponse.json({ error: (error as { message?: string })?.message || "Unable to save changes." }, { status: 400 }); }
 }
